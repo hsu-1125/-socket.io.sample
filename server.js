@@ -30,49 +30,48 @@ app.get('/b', (req, res) => {
 /**
  * socket 事件
  */
-io.on('connection', (socket,) => {
+io.on('connection', (socket,userData) => {
   var roomID= uuidv4();
-  var startTime=new Date();
-  /*console.log(`${socket.id} connected`);
-  console.log(`${roomID} connected`);*/
-
-  
+  var startTime=new Date();  
   /**
    * Room
    */
-  socket.on('message', (data) => {
-    var obj = JSON.parse(data)
-    console.log(obj.userID + ":" + obj.message)
-    io.in(room).emit('room', JSON.stringify(obj))
-  })
-
-  socket.on('join', (json) => {
-    var obj = JSON.parse(json);
-    console.log(`${obj.userID} is connected lang : ${obj.lang}`);
+    console.log(`${userData.userID} is connected lang : ${userData.lang}`);
     var isMatch=false;
-    if(matchMap.size>=1)
+    if(matchMap.size >= 1)
     {
       for (let [roomID, matchData] of matchMap) {
         const { userA, userB } = matchData;
-        if(userA===obj.userID||userB===obj.userID){
-          console.log(`${obj.userID} isMatched`);
+        if(userA === userData.userID || userB === userData.userID){
+          console.log(new Error(`${userData.userID} Repeat pairing`));
           isMatch=true;
+          io.leave(socket.id);
           break;       
         }
       }
     }
+    else if(dataMap.has(userData.userID))
+    {
+      console.log(new Error(`${userData.userID} Repeat connection`));
+      io.leave(socket.id);
+      break;
+    }
+    else
+    {
+      setDataMap(userData.userID,socket.id,userData.lang);
 
-    if(!isMatch && !dataMap.has(obj.userID))setDataMap(socket.id, obj.userID,obj.lang);
+    }
+    //if(!isMatch && !dataMap.has(userData.userID))setDataMap(socket.id, userData.userID,userData.lang);
 
     if(!isMatch && dataMap.size>1)
     {
-      for (let [user_id, userData] of dataMap) {
-        const { lang } = userData;
-        if(user_id!=obj.userID&&lang===obj.lang){
-          console.log(`match sucess ${user_id} and ${obj.userID}`);
-          setMatchMap(obj.userID,user_id,roomID,lang, new Date().toISOString().slice(0, 19).replace('T', ' '));
-          dataMap.delete(obj.userID);
-          dataMap.delete(user_id);
+      for (let [key, value] of dataMap) {
+        const { lang } = value;
+        if(key != userData.userID && lang === userData.lang){
+          console.log(`match sucess ${key} and ${obj.userID}`);
+          setMatchMap(userData.userID,key,roomID,lang, new Date().toISOString().slice(0, 19).replace('T', ' '));
+          dataMap.delete(userData.userID);
+          dataMap.delete(key);
 
           console.log("checkDataMap", dataMap);
           break;
@@ -84,16 +83,15 @@ io.on('connection', (socket,) => {
       console.log("checkMatchMap", matchMap);
 
     }
-    var processTime=new Date()-startTime;
+    var processTime=new Date() - startTime;
     console.log(`processTime ${processTime}ms`);
     console.log("-----------------------------------------------------------------------------------------------------");
-  })
 
-  socket.on('leave', (room) => {
+  /*socket.on('leave', (room) => {
     socket.leave(room)
     socket.to(room).emit('bye', room, socket.id)
     socket.emit('leave', room, socket.id)
-  })
+  })*/
  
   /**
    * 全體廣播
@@ -121,7 +119,7 @@ app.use(
    console.log("Express server listening on port " + app.get("port"));
  });
 
- function setDataMap(socketId, userID,lang) {
+ function setDataMap(userID, socketId,lang) {
   dataMap.set(userID, {
     socketId: socketId,
     lang:lang
@@ -136,5 +134,5 @@ app.use(
       lang: lang,
       createTime:createTime
     });
-    console.log("setMatchMap", matchMap);
-  }
+    console.log("setMatchMap", matchMap); 
+}
