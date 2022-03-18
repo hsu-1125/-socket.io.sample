@@ -1,6 +1,15 @@
 {
+  "scripts": {
+    "list": "forever list",
+    "start:pm2": "pm2-runtime -i 0 ./app.js",
+    "start": "nodemon server.js",
+    "stop": "forever stopall"
+  },
   "dependencies": {
+    "@socket.io/cluster-adapter": "^0.1.0",
+    "@socket.io/sticky": "^1.0.1",
     "express": "^4.17.3",
-    "socket.io": "^4.4.1"
+    "socket.io": "^4.4.1",
+    "uuid": "^8.3.2"
   }
 }

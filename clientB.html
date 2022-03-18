@@ -6,9 +6,10 @@
         <title>socket.io test</title>
         <script src="/socket.io/socket.io.js"></script>
         <script>
-            var userID = "b"
+            /*var userID = generateRandomLetter()
+            var lang=getRandomInt(3)*/
             var room = ""
-            var socket = io.connect('http://localhost:8081');
+            var socket = io.connect();
             socket.on('news', function (data) {
                 console.log(data);
                 socket.emit('my other event', { my: 'data' });
@@ -20,7 +21,7 @@
         <div id="msg"></div>
 
         <script>
-            socket.on('connect', function () {
+            socket.on('connect', function (userID) {
                 socket.emit("greet");
             });
 
@@ -47,7 +48,7 @@
                 console.log("加入房間成功")
             });
 
-            socket.emit('join', JSON.stringify({"userID": userID}))
+            socket.emit('join',  JSON.stringify({"userID": generateRandomLetter(),"lang":getRandomInt(8)}))
 
             /**
              * Function
@@ -57,6 +58,14 @@
                 var data = {"userID": userID, "message": msg}
                 console.log(data)
                 socket.emit('message', JSON.stringify(data))
+            }
+            function getRandomInt(max) {
+            return Math.floor(Math.random() * max);
+            }
+            function generateRandomLetter() {
+            const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+            return alphabet[Math.floor(Math.random() * alphabet.length)]
             }
         </script>
     </body>
