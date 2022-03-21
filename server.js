@@ -11,6 +11,10 @@ const matchMap=new Map();
 let room = "no1";
 const { v4: uuidv4 } = require('uuid');
 
+global.fetch = require("node-fetch");
+var Global = require("./global.js");
+var api = new Global();
+
 /**
  * 路由
  */
@@ -30,68 +34,94 @@ app.get('/b', (req, res) => {
 /**
  * socket 事件
  */
-io.on('connection', (socket,userData) => {
-  var roomID= uuidv4();
-  var startTime=new Date();  
+io.on('connection', (socket) => {
+  var startTime=new Date();
+  console.log(`${socket.id} is connection`);  
   /**
    * Room
    */
-    console.log(`${userData.userID} is connected lang : ${userData.lang}`);
-    var isMatch=false;
-    if(matchMap.size >= 1)
-    {
-      for (let [roomID, matchData] of matchMap) {
-        const { userA, userB } = matchData;
-        if(userA === userData.userID || userB === userData.userID){
-          console.log(new Error(`${userData.userID} Repeat pairing`));
-          isMatch=true;
-          io.leave(socket.id);
-          break;       
+    socket.emit('getUserData');
+    //與前端取得使用者ˇ資料
+    socket.on("getUserData", (userID,userLang) => {
+      console.log(`getUserData userID : ${userID} lang : ${userLang}`);
+      var isMatch=false;
+      if(matchMap.size >= 1)
+      {
+        for (let [roomID, matchData] of matchMap) {
+          const { userA, userB } = matchData;
+          if(userA === userID || userB === userID){
+            console.log(`${userData.userID} Repeat pairing`);
+            isMatch=true;
+            socket.disconnect();
+            return;       
+          }
         }
       }
-    }
-    else if(dataMap.has(userData.userID))
-    {
-      console.log(new Error(`${userData.userID} Repeat connection`));
-      io.leave(socket.id);
-      break;
-    }
-    else
-    {
-      setDataMap(userData.userID,socket.id,userData.lang);
-
-    }
-    //if(!isMatch && !dataMap.has(userData.userID))setDataMap(socket.id, userData.userID,userData.lang);
-
-    if(!isMatch && dataMap.size>1)
-    {
-      for (let [key, value] of dataMap) {
-        const { lang } = value;
-        if(key != userData.userID && lang === userData.lang){
-          console.log(`match sucess ${key} and ${obj.userID}`);
-          setMatchMap(userData.userID,key,roomID,lang, new Date().toISOString().slice(0, 19).replace('T', ' '));
-          dataMap.delete(userData.userID);
-          dataMap.delete(key);
-
-          console.log("checkDataMap", dataMap);
-          break;
-        }/*else{
-          console.log(`match fail ${obj.userID}`);
-          //setMatchMap(obj.userID,user_id,roomID,lang)
-        }*/
+      if(dataMap.has(userID) || isMatch)
+      {
+        console.log(`${userID} Repeat connection`);
+        socket.disconnect();
+        return;
       }
-      console.log("checkMatchMap", matchMap);
+      else
+      {
+        setDataMap(userID,socket.id,userLang);
+  
+      }
 
-    }
-    var processTime=new Date() - startTime;
-    console.log(`processTime ${processTime}ms`);
-    console.log("-----------------------------------------------------------------------------------------------------");
+  
+      if(!isMatch && dataMap.size>1)
+      {
+        for (let [targetID, value] of dataMap) {
+          const { lang,socketId } = value;
+          if(targetID != userID && lang === userLang){
+            const array=[socketId,socket.id];
+            const roomID= uuidv4();
+            const videoID= await api.getVideoID();
+            console.log(`match sucess ${targetID} and ${userID}`);
+            setMatchMap(userID,targetID,roomID,lang,videoID, new Date().toISOString().slice(0, 19).replace('T', ' '));
+            for(const element of array)
+            {
+              socket.join(roomID);
+            }
+            dataMap.delete(userID);
+            dataMap.delete(targetID);
+            console.log("checkDataMap", dataMap);
+            const members = io.sockets.adapter.rooms[roomID];
+            console.log("joinRoomTest",members);
+            return;
+          }
+        }
+        console.log("checkMatchMap", matchMap);
+  
+      }
+      var processTime=new Date() - startTime;
+      console.log(`processTime ${processTime}ms`);
+      console.log("-----------------------------------------------------------------------------------------------------");
+  
+    });
+    //雙方配對成功，創建房間
+    socket.on("create", (roomID,videoID,targetID,userID,lang) => {
+      console.log(`server receive join from ${userID}`);
+      api.webrtclog(roomID, userID); 
+      const matchInfo = matchMap.get(roomID);
+      if (matchInfo !== undefined) {
+          console.log("room join roomID", roomID);
+          io.to(roomID).emit("match", roomID,videoID,targetID,userID,lang);
+          socket.join(roomID);
 
-  /*socket.on('leave', (room) => {
+      } else { 
+          socket.emit('finished');
+          console.log(`server emit finished to ${userID}`);
+      }
+    });
+
+
+    socket.on('leave', (room) => {
     socket.leave(room)
     socket.to(room).emit('bye', room, socket.id)
     socket.emit('leave', room, socket.id)
-  })*/
+  })
  
   /**
    * 全體廣播
@@ -127,11 +157,12 @@ app.use(
   console.log("setDataMap", dataMap);
 }
 
-  function setMatchMap(userA,userB, roomID,lang,createTime) {
+  function setMatchMap(userA,userB, roomID,lang,videoID,createTime) {
     matchMap.set(roomID, {
       userA: userA,
       userB:userB,
       lang: lang,
+      videoID:videoID,
       createTime:createTime
     });
     console.log("setMatchMap", matchMap); 
