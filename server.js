@@ -30,7 +30,7 @@ app.get('/b', (req, res) => {
 /**
  * socket 事件
  */
-io.on('connection', (socket,) => {
+io.on('connection', (socket) => {
   var roomID= uuidv4();
   var startTime=new Date();
   /*console.log(`${socket.id} connected`);
@@ -108,7 +108,7 @@ io.on('connection', (socket,) => {
 app.use(
   cors({
     //origin: ["https://f5a4-140-124-73-27.ngrok.io"],
-    origin: ["http://140.127.73.10.:8500"],
+    origin: ["http://140.127.73.10:8500"],
   })
 );
 
