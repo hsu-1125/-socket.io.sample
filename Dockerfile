@@ -7,6 +7,8 @@ WORKDIR /usr/src/app
 ENV NODE_ENV production
 
 RUN npm install pm2 -g
+ENV PM2_PUBLIC_KEY v59dk9f6a63rae6
+ENV PM2_SECRET_KEY kxmiabyohrmufth
 
 COPY package.json /usr/src/app/
 
